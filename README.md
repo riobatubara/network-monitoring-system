@@ -13,6 +13,21 @@
 }
 ```
 
+or
+```
+{
+  "id": "evt-1001",
+  "timestamp": "2026-06-23T10:00:00Z",
+  "source": "router-1",
+  "protocol": "ICMP",
+  "payload": {
+    "host": "8.8.8.8",
+    "latency_ms": 12,
+    "packet_loss": 0
+  }
+}
+```
+
 #### Internal Behavior
 - Goroutine per target
 - Context with timeout
@@ -44,6 +59,28 @@
   ],
   "timeout_ms": 2000,
   "retries": 3
+}
+```
+
+or
+```
+{
+  "id": "evt-1002",
+  "timestamp": "2026-06-23T10:00:01Z",
+  "source": "switch-3",
+  "protocol": "SNMP",
+  "payload": {
+    "oids": [
+      {
+        "oid": "1.3.6.1.2.1.1.5.0",
+        "value": "core-switch-01"
+      },
+      {
+        "oid": "1.3.6.1.2.1.2.2.1.10.1",
+        "value": 12345678
+      }
+    ]
+  }
 }
 ```
 
@@ -105,6 +142,23 @@
 }
 ```
 
+or
+```
+{
+  "id": "evt-1003",
+  "timestamp": "2026-06-23T10:00:02Z",
+  "source": "router-2",
+  "protocol": "gNMI",
+  "payload": {
+    "path": "/interfaces/interface/state/counters",
+    "values": {
+      "in_octets": 998877,
+      "out_octets": 887766
+    }
+  }
+}
+```
+
 #### Internal Behavior
 - Persistent gRPC connection
 - Goroutine listener per stream
@@ -135,6 +189,21 @@
 }
 ```
 
+or
+```
+{
+  "id": "evt-1004",
+  "timestamp": "2026-06-23T10:00:03Z",
+  "source": "firewall-1",
+  "protocol": "SYSLOG",
+  "payload": {
+    "severity": "warning",
+    "message": "CPU usage high",
+    "facility": "system"
+  }
+}
+```
+
 #### Internal Behavior
 - UDP listener (non-blocking)
 - Goroutine per packet (or batch)
@@ -157,6 +226,25 @@
 {
   "type": "snmp_trap",
   "listen_port": 162
+}
+```
+
+or
+```
+{
+  "id": "evt-1005",
+  "timestamp": "2026-06-23T10:00:04Z",
+  "source": "switch-5",
+  "protocol": "SNMP_TRAP",
+  "payload": {
+    "trap_oid": "1.3.6.1.6.3.1.1.5.3",
+    "varbinds": [
+      {
+        "oid": "1.3.6.1.2.1.2.2.1.7.2",
+        "value": "down"
+      }
+    ]
+  }
 }
 ```
 
@@ -187,6 +275,21 @@
     "password": "password"
   },
   "timeout_ms": 3000
+}
+```
+
+or
+```
+{
+  "id": "evt-1006",
+  "timestamp": "2026-06-23T10:00:05Z",
+  "source": "router-3",
+  "protocol": "NETCONF",
+  "payload": {
+    "operation": "get-config",
+    "format": "xml",
+    "data": "<interfaces><interface><name>eth0</name></interface></interfaces>"
+  }
 }
 ```
 
