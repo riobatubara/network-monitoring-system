@@ -355,3 +355,138 @@ or
 | Syslog    | UDP port        | log events       |
 | Trap      | UDP port        | alerts           |
 | RESTCONF  | API endpoint    | JSON state       |
+
+
+network-monitoring-system/
+│
+├── cmd/
+│   ├── ingestion-rest/
+│   ├── ingestion-grpc/
+│   ├── syslog-receiver/
+│   ├── snmp-trap-receiver/
+│   │
+│   ├── scheduler-service/
+│   ├── worker-node/
+│   ├── collector-snmp/
+│   ├── collector-icmp/
+│   ├── collector-gnmi/
+│   ├── collector-netconf/
+│   ├── collector-restconf/
+│   │
+│   ├── processing-core/
+│   ├── alerting-service/
+│   ├── api-backend/
+│
+├── internal/
+│   ├── ingestion/
+│   │   ├── rest/
+│   │   ├── grpc/
+│   │   ├── syslog/
+│   │   ├── snmptrap/
+│   │   ├── parser/
+│   │   └── normalizer/
+│   │
+│   ├── scheduler/
+│   │   ├── job/
+│   │   ├── allocator/
+│   │   ├── retry/
+│   │   └── heartbeat/
+│   │
+│   ├── worker/
+│   │   ├── pool/
+│   │   ├── executor/
+│   │   ├── timeout/
+│   │   ├── ratelimit/
+│   │   └── dispatcher/
+│   │
+│   ├── collectors/
+│   │   ├── snmp/
+│   │   ├── icmp/
+│   │   ├── gnmi/
+│   │   ├── netconf/
+│   │   └── restconf/
+│   │
+│   ├── processing/
+│   │   ├── pipeline/
+│   │   ├── enrichment/
+│   │   ├── filter/
+│   │   ├── aggregator/
+│   │   └── dedup/
+│   │
+│   ├── eventbus/
+│   │   ├── kafka/
+│   │   ├── nats/
+│   │   ├── redisstream/
+│   │   └── memory/
+│   │
+│   ├── storage/
+│   │   ├── postgres/
+│   │   ├── victoriametrics/
+│   │   ├── redis/
+│   │   └── interface/
+│   │
+│   ├── alerting/
+│   │   ├── engine/
+│   │   ├── rules/
+│   │   ├── evaluator/
+│   │   └── notifier/
+│   │
+│   ├── api/
+│   │   ├── http/
+│   │   ├── handlers/
+│   │   ├── middleware/
+│   │   └── grpc/
+│   │
+│   ├── config/
+│   ├── logger/
+│   ├── metrics/
+│   ├── tracing/
+│   ├── errors/
+│   └── utils/
+│
+├── pkg/
+│   ├── models/
+│   │   ├── event.go
+│   │   ├── device.go
+│   │   ├── metric.go
+│   │   └── job.go
+│   │
+│   ├── proto/
+│   │   ├── scheduler.proto
+│   │   ├── worker.proto
+│   │   ├── ingestion.proto
+│   │   └── collector.proto
+│   │
+│   ├── constants/
+│   └── types/
+│
+├── deployments/
+│   ├── docker/
+│   ├── kubernetes/
+│   ├── helm/
+│   └── compose/
+│
+├── scripts/
+│   ├── build.sh
+│   ├── run-local.sh
+│   ├── migrate.sh
+│   └── load-test.sh
+│
+├── configs/
+│   ├── dev.yaml
+│   ├── staging.yaml
+│   ├── prod.yaml
+│   └── collectors.yaml
+│
+├── migrations/
+│   └── postgres/
+│
+├── docs/
+│   ├── architecture.md
+│   ├── protocols.md
+│   ├── api.md
+│   └── diagrams/
+│
+├── go.mod
+├── go.sum
+└── Makefile
