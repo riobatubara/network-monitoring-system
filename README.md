@@ -1,6 +1,9 @@
 # network-monitoring-system
 
-### 1. ICMP (Ping) Collector
+#### Architecture
+![Alt text](./network-monitoring-system.png.png?raw=true "Optional Title")
+
+<!-- ### 1. ICMP (Ping) Collector
 
 #### Input
 ```
@@ -349,11 +352,8 @@ or
 | Collector | Input           | Output           |
 | --------- | --------------- | ---------------- |
 | ICMP      | target, timeout | latency, status  |
-| SNMP      | OIDs            | metrics          |
 | TCP       | host:port       | open/close       |
-| gNMI      | path            | telemetry stream |
 | Syslog    | UDP port        | log events       |
-| Trap      | UDP port        | alerts           |
 | RESTCONF  | API endpoint    | JSON state       |
 
 
@@ -367,10 +367,7 @@ network-monitoring-system/
 │   │
 │   ├── scheduler-service/
 │   ├── worker-node/
-│   ├── collector-snmp/
 │   ├── collector-icmp/
-│   ├── collector-gnmi/
-│   ├── collector-netconf/
 │   ├── collector-restconf/
 │   │
 │   ├── processing-core/
@@ -382,7 +379,6 @@ network-monitoring-system/
 │   │   ├── rest/
 │   │   ├── grpc/
 │   │   ├── syslog/
-│   │   ├── snmptrap/
 │   │   ├── parser/
 │   │   └── normalizer/
 │   │
@@ -400,10 +396,7 @@ network-monitoring-system/
 │   │   └── dispatcher/
 │   │
 │   ├── collectors/
-│   │   ├── snmp/
 │   │   ├── icmp/
-│   │   ├── gnmi/
-│   │   ├── netconf/
 │   │   └── restconf/
 │   │
 │   ├── processing/
@@ -489,4 +482,4 @@ network-monitoring-system/
 │
 ├── go.mod
 ├── go.sum
-└── Makefile
+└── Makefile -->
