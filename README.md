@@ -1,7 +1,7 @@
 # network-monitoring-system
 
 #### Architecture
-![Alt text](./network-monitoring-system.png.png?raw=true "Optional Title")
+![Architecture Diagram](./network-monitoring-system.png)
 
 <!-- ### 1. ICMP (Ping) Collector
 
