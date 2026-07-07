@@ -189,3 +189,8 @@ func (s *Scheduler) Run(ctx context.Context, interval time.Duration) {
 		}
 	}
 }
+
+// GetResultsChannel returns the internal telemetry pipeline hook
+func (pe *PollingEngine) GetResultsChannel() chan<- UnifiedEvent {
+	return pe.results
+}
