@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: netmon
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.101.0
+    ports:
+      - "8428:8428"
+    volumes:
+      - vmdata:/victoria-metrics-data
+
+  server:
+    build:
+      context: .
+      dockerfile: cmd/server/Dockerfile
+    ports:
+      - "50051:50051"
+    depends_on:
+      - postgres
+      - redis
+      - victoriametrics
+    environment:
+      - SERVER_GRPC_PORT=50051
+
+  collector-idn-west-jkt:
+    build:
+      context: .
+      dockerfile: cmd/collector/Dockerfile
+    depends_on:
+      - server
+    environment:
+      - COLLECTOR_ID=collector-idn-west-jkt
+      - COLLECTOR_SERVER_ADDRESS=server:50051
+
+  collector-idn-central-jkt:
+    build:
+      context: .
+      dockerfile: cmd/collector/Dockerfile
+    depends_on:
+      - server
+    environment:
+      - COLLECTOR_ID=collector-idn-central-jkt
+      - COLLECTOR_SERVER_ADDRESS=server:50051
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: cmd/scheduler/Dockerfile
+    ports:
+      - "50051:50051"
+    volumes:
+      - ./config.yaml:/config.yaml
+    depends_on:
+      - postgres
+      - victoriametrics
+    networks:
+      - netmon-network
+
+  collector:
+    build:
+      context: .
+      dockerfile: cmd/collector/Dockerfile
+    volumes:
+      - ./config.yaml:/config.yaml
+    depends_on:
+      - scheduler
+    networks:
+      - netmon-network
+
+volumes:
+  pgdata:
+  vmdata:
