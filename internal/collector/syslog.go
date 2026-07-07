@@ -6,83 +6,80 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"network-monitoring-system/internal/model"
 )
 
-// SyslogListener binds to a UDP port to consume pushed network events
 type SyslogListener struct {
-	addr        string
-	resultsChan chan<- UnifiedEvent
-	collectorID string
+	listenAddr string
+	engine     *PollingEngine
 }
 
-func NewSyslogListener(addr string, results chan<- UnifiedEvent, collectorID string) *SyslogListener {
+// NewSyslogListener initializes the background log collector instance
+func NewSyslogListener(listenAddr string, engine *PollingEngine) *SyslogListener {
 	return &SyslogListener{
-		addr:        addr,
-		resultsChan: results,
-		collectorID: collectorID,
+		listenAddr: listenAddr,
+		engine:     engine,
 	}
 }
 
-// Start opens the network port and handles streaming incoming data packets
+// Start opens the UDP network socket and listens for inbound firewall/switch logs
 func (s *SyslogListener) Start(ctx context.Context) {
-	// Parse local address and spin up standard UDP connection listener
-	lAddr, err := net.ResolveUDPAddr("udp", s.addr)
+	addr, err := net.ResolveUDPAddr("udp", s.listenAddr)
 	if err != nil {
-		log.Fatalf("Failed to resolve UDP socket address: %v", err)
+		log.Printf("[Syslog-Error] Failed to resolve UDP bind address: %v", err)
+		return
 	}
 
-	conn, err := net.ListenUDP("udp", lAddr)
+	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		log.Fatalf("Failed to bind to UDP syslog port: %v", err)
+		log.Printf("[Syslog-Error] Socket binding on %s failed: %v", err)
+		return
 	}
 	defer conn.Close()
 
-	log.Printf("Syslog UDP engine running on port %s", s.addr)
+	log.Printf("[Syslog] Server listening for network device push messages on UDP %s", s.listenAddr)
 
-	// Buffer payload sizing (standard Syslog packet max payload size is under 2KB)
+	// Allocate a safe read buffer for inbound packet frames
 	buf := make([]byte, 2048)
 
-	// Context cancel close trigger routine
+	// Launch background handler to terminate socket gracefully if upper context cancels
 	go func() {
 		<-ctx.Done()
-		conn.Close() // Forces ReadFromUDP to break immediately
+		conn.Close()
 	}()
 
 	for {
-		n, remoteAddr, err := conn.ReadFromUDP(buf)
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				return // Closed normally via context shutdown
-			default:
-				log.Printf("Error reading Syslog packet: %v", err)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			n, remoteAddr, err := conn.ReadFromUDP(buf)
+			if err != nil {
+				// Prevent crashing if the socket is closed during shutdown sequences
+				if ctx.Err() != nil {
+					return
+				}
+				log.Printf("[Syslog-Error] Read failure from network layer: %v", err)
 				continue
 			}
+
+			rawMessage := string(buf[:n])
+			targetIP := remoteAddr.IP.String()
+
+			// Normalize the raw data stream into our unified event footprint
+			event := model.UnifiedEvent{
+				JobID:     "syslog-event-" + strings.ReplaceAll(time.Now().Format("150405.000"), ".", ""),
+				Target:    targetIP,
+				Protocol:  "SYSLOG",
+				Status:    "SUCCESS",
+				LatencyMs: 0, // Inbound push streams have no execution round-trip latency
+				Payload:   strings.TrimSpace(rawMessage),
+				Timestamp: time.Now(),
+			}
+
+			// Hand off event directly into the locked engine channel
+			s.engine.PushResultDirectly(event)
 		}
-
-		rawMessage := string(buf[:n])
-
-		// Concurrently normalize the packet to keep the UDP receiver buffer completely open
-		go s.normalizeSyslog(remoteAddr.IP.String(), rawMessage)
 	}
-}
-
-// Hand-rolled primitive parser to normalize unstructured data
-func (s *SyslogListener) normalizeSyslog(senderIP string, rawMessage string) {
-	// Cleans trailing line breaks common in device strings
-	cleanMsg := strings.TrimSpace(rawMessage)
-
-	// Map straight into your system-wide Normalized Struct format
-	event := UnifiedEvent{
-		JobID:     "syslog-" + time.Now().Format("20060102150405"),
-		Target:    senderIP,
-		Protocol:  "SYSLOG",
-		Status:    "SUCCESS",
-		LatencyMs: 0, // Inbound pushed data has no target latency metrics
-		Payload:   cleanMsg,
-		Timestamp: time.Now(),
-	}
-
-	// Push down standard pipeline channel
-	s.resultsChan <- event
 }
