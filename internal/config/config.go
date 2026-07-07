@@ -4,14 +4,23 @@ import (
 	"github.com/spf13/viper"
 )
 
-type Config struct {
-	Server    ServerConfig    `mapstructure:"server"`
-	Collector CollectorConfig `mapstructure:"collector"`
-}
-
-type ServerConfig struct {
+type SchedulerConfig struct {
 	GRPCPort int      `mapstructure:"grpc_port"`
 	DB       DBConfig `mapstructure:"db"`
+}
+
+type CollectorConfig struct {
+	ID                 string `mapstructure:"id"`
+	SchedulerAddress   string `mapstructure:"scheduler_address"`
+	WorkerCount        int    `mapstructure:"worker_count"`
+	BufferSize         int    `mapstructure:"buffer_size"`
+	RateLimitMs        int    `mapstructure:"rate_limit_ms"`
+	PollingIntervalSec int    `mapstructure:"polling_interval_sec"`
+}
+
+type Config struct {
+	Scheduler SchedulerConfig `mapstructure:"scheduler"`
+	Collector CollectorConfig `mapstructure:"collector"`
 }
 
 type DBConfig struct {
@@ -20,18 +29,9 @@ type DBConfig struct {
 	VictoriaMetricsURL string `mapstructure:"victoriametrics_url"`
 }
 
-type CollectorConfig struct {
-	ID                 string `mapstructure:"id"`
-	ServerAddress      string `mapstructure:"server_address"`
-	WorkerCount        int    `mapstructure:"worker_count"`
-	BufferSize         int    `mapstructure:"buffer_size"`
-	RateLimitMs        int    `mapstructure:"rate_limit_ms"`
-	PollingIntervalSec int    `mapstructure:"polling_interval_sec"`
-}
-
 func LoadConfig(path string) (*Config, error) {
 	viper.SetConfigFile(path)
-	viper.AutomaticEnv() // Allows environment variables to override files (e.g., SERVER_DB_REDIS_ADDR)
+	viper.AutomaticEnv() // Lets environment variables safely override file keys inside Docker containers
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err

@@ -1,13 +1,13 @@
-server:
+scheduler:
   grpc_port: 50051
   db:
-    postgres_dsn: "host=postgres user=postgres password=secret dbname=netmon sslmode=disable"
-    redis_addr: "redis:6379"
-    victoriametrics_url: "http://victoriametrics:8428/api/v1/write"
+    postgres_dsn: "host=localhost user=postgres password=secret dbname=netmon sslmode=disable"
+    redis_addr: "localhost:6379"
+    victoriametrics_url: "http://localhost:8428/api/v1/write"
 
 collector:
-  id: "collector-idn-west-jkt-1"
-  server_address: "server:50051"
+  id: "collector-regional-01"
+  scheduler_address: "localhost:50051"
   worker_count: 10
   buffer_size: 1000
   rate_limit_ms: 100
