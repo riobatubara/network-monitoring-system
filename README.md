@@ -1,9 +1,9 @@
 # network-monitoring-system
 
-#### Architecture
+#### 1. Architecture
 ![Architecture Diagram](./network-monitoring-system.png)
 
-#### Project Structure
+#### 2. Project Structure
 
 ```
 network-monitoring-system/
@@ -42,7 +42,8 @@ network-monitoring-system/
 
 ---
 
-#### Pipeline 1: Pull-Based Polling Flow (ICMP & RESTCONF)
+#### 3. Pipelines
+##### Pipeline 1: Pull-Based Polling Flow (ICMP & RESTCONF)
 
 This flow tracks periodic health checks where the system actively queries network infrastructure.
 
@@ -65,7 +66,7 @@ This flow tracks periodic health checks where the system actively queries networ
                                             └─────────────┘
 ```
 
-#### Steps
+###### Steps
 
 1. Scheduler queries PostgreSQL for devices and polling intervals  
 2. Sends jobs via gRPC (`StreamJobs`)  
@@ -75,7 +76,7 @@ This flow tracks periodic health checks where the system actively queries networ
 6. Sends `UnifiedEvent` back via `StreamResults`  
 
 
-#### Pipeline 2: Push-Based Streaming Flow (Syslog)
+##### Pipeline 2: Push-Based Streaming Flow (Syslog)
 
 This flow handles spontaneous events generated directly by network devices.
 
@@ -98,7 +99,7 @@ This flow handles spontaneous events generated directly by network devices.
        └─ (5b. METRICS) ─> Timeseries DB
 ```
 
-#### Steps
+###### Steps
 
 1. Device emits syslog event  
 2. Collector receives via UDP listener  
@@ -106,14 +107,14 @@ This flow handles spontaneous events generated directly by network devices.
 4. Streams to scheduler via gRPC  
 
 
-#### Central Processing Layer (Scheduler Routing)
+##### Central Processing Layer (Scheduler Routing)
 Once the Scheduler receives a `UnifiedEvent`, it routes:
 
-##### PostgreSQL (Alerts)
+###### PostgreSQL (Alerts)
 - Condition: `Status == FAILED`
 - Stored in `active_alerts`
 
-##### Timeseries DB (VictoriaMetrics)
+###### Timeseries DB (VictoriaMetrics)
 - Condition: performance metrics  
 - Format: Influx Line Protocol  
 - Sent via HTTP POST
