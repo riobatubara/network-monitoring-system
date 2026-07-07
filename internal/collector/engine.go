@@ -120,67 +120,78 @@ func (pe *PollingEngine) executeJob(job Job) {
 
 func (pe *PollingEngine) streamToScheduler(ctx context.Context, serverAddr string) {
 	for {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return
-		default:
-			log.Printf("[Collector-Engine] Opening connection to central Scheduler at %s...", serverAddr)
-			conn, err := grpc.DialContext(ctx, serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			if err != nil {
-				time.Sleep(5 * time.Second)
-				continue
-			}
+		}
 
-			client := pb.NewMonitoringServiceClient(conn)
-			stream, err := client.StreamResults(ctx)
-			if err != nil {
+		log.Printf("[Collector-Engine] Connecting to %s...", serverAddr)
+
+		conn, err := grpc.DialContext(
+			ctx,
+			serverAddr,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+		)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		client := pb.NewMonitoringServiceClient(conn)
+		stream, err := client.StreamResults(ctx)
+		if err != nil {
+			conn.Close()
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		log.Println("[Collector-Engine] Stream established")
+
+		reconnect := false
+
+		for !reconnect {
+			select {
+			case <-ctx.Done():
+				_, _ = stream.CloseAndRecv()
 				conn.Close()
-				time.Sleep(5 * time.Second)
-				continue
-			}
+				return
 
-			log.Println("[Collector-Engine] Live gRPC streaming client link established.")
-
-			for {
-				select {
-				case <-ctx.Done():
+			case localEvent, ok := <-pe.results:
+				if !ok {
 					_, _ = stream.CloseAndRecv()
 					conn.Close()
 					return
-				case localEvent, ok := <-pe.results:
-					if !ok {
-						_, _ = stream.CloseAndRecv()
-						conn.Close()
-						return
-					}
+				}
 
-					pbEvent := &pb.UnifiedEvent{
-						JobId:     localEvent.JobID,
-						Target:    localEvent.Target,
-						Status:    localEvent.Status,
-						LatencyMs: localEvent.LatencyMs,
-						Payload:   localEvent.Payload,
-						Timestamp: timestamppb.New(localEvent.Timestamp),
-					}
+				pbEvent := &pb.UnifiedEvent{
+					JobId:     localEvent.JobID,
+					Target:    localEvent.Target,
+					Status:    localEvent.Status,
+					LatencyMs: localEvent.LatencyMs,
+					Payload:   localEvent.Payload,
+					Timestamp: timestamppb.New(localEvent.Timestamp),
+				}
 
-					switch localEvent.Protocol {
-					case "ICMP":
-						pbEvent.Protocol = pb.ProtocolType_ICMP
-					case "RESTCONF":
-						pbEvent.Protocol = pb.ProtocolType_RESTCONF
-					case "SYSLOG":
-						pbEvent.Protocol = pb.ProtocolType_SYSLOG
-					default:
-						pbEvent.Protocol = pb.ProtocolType_PROTOCOL_UNSPECIFIED
-					}
+				switch localEvent.Protocol {
+				case "ICMP":
+					pbEvent.Protocol = pb.ProtocolType_ICMP
+				case "RESTCONF":
+					pbEvent.Protocol = pb.ProtocolType_RESTCONF
+				case "SYSLOG":
+					pbEvent.Protocol = pb.ProtocolType_SYSLOG
+				default:
+					pbEvent.Protocol = pb.ProtocolType_PROTOCOL_UNSPECIFIED
+				}
 
-					if err := stream.Send(pbEvent); err != nil {
-						log.Printf("[Collector-Engine] Send exception, recycling stream connection: %v", err)
-						break
-					}
+				if err := stream.Send(pbEvent); err != nil {
+					log.Printf("[Collector-Engine] Send failed, reconnecting: %v", err)
+					reconnect = true
 				}
 			}
 		}
+
+		conn.Close()
+		time.Sleep(2 * time.Second)
 	}
 }
 
