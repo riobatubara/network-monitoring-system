@@ -84,3 +84,7 @@ services:
 volumes:
   pgdata:
   vmdata:
+
+networks:
+  netmon-network:
+    driver: bridge
