@@ -3,6 +3,95 @@
 #### Architecture
 ![Architecture Diagram](./network-monitoring-system.png)
 
+
+network-monitoring-system/
+├── api/
+│   └── proto/
+│       ├── collector.proto       # gRPC definitions for collector registration/heartbeats
+│       └── scheduler.proto       # gRPC definitions for job distribution
+├── cmd/
+│   ├── scheduler/
+│   │   └── main.go               # Scheduler entry point
+│   └── collector/
+│       └── main.go               # Collector entry point
+├── internal/
+│   ├── scheduler/                # Scheduler logic (job assignment, target registry)
+│   ├── collector/                # Core collector engine
+│   │   ├── engine.go             # Worker pool management
+│   │   ├── icmp.go               # ICMP execution logic
+│   │   ├── syslog.go             # Syslog UDP/TCP listener
+│   │   └── restconf.go           # RESTCONF/HTTP client
+│   ├── model/
+│   │   └── event.go              # Unified Normalized Event structs
+│   └── storage/                  # Database clients
+│       ├── postgres/             # Metadata/Configs
+│       ├── redis/                # Rate limiting / Caching
+│       └── timeseries/           # Prometheus/VictoriaMetrics exporters
+├── pkg/                          # Shared utilities (logging, retry helpers)
+├── go.mod
+└── go.sum
+
+
+#### Pipeline 1: The Pull-Based Polling Flow (ICMP & RESTCONF)
+This flow tracks periodic health checks where the system actively queries your network infrastructure.
+
+ [ PostgreSQL ] 
+       │  (1. Fetch Inventory & Frequencies)
+       ▼
+ ┌───────────┐  (2. Stream Jobs via gRPC)   ┌─────────────┐
+ │ SCHEDULER │ ───────────────────────────> │  COLLECTOR  │
+ └───────────┘                              └──────┬──────┘
+       ▲                                           │ (3. Read job queue)
+       │                                           ▼
+       │                                    ┌─────────────┐
+       │ (6. gRPC StreamResults)            │ Worker Pool │
+       │                                    └──────┬──────┘
+       │                                           │ (4. Execute concurrent I/O)
+       │                                           ▼
+       │                                    ┌─────────────┐
+       └─────────────────────────────────── │ Target Node │
+                                            └─────────────┘
+                                            (Switch/Router)
+
+1. Job Generation: The Scheduler polls the PostgreSQL monitored_devices table to look up devices, configurations, and their target polling intervals.
+2. Job Dispatch: The Scheduler sends a batch of execution instructions down the open gRPC network stream (StreamJobs) to the registered Collectors.
+3. Queue Ingestion: The Collector receives the job and injects it straight into its internal, buffered Go Channel (jobQueue).
+4. Worker Execution: An idle Goroutine from the worker pool reads the job from the channel, reads its local Rate Limiter, and applies a strict context.WithTimeout.
+5. Network Execution: The worker executes the low-level execution task (e.g., executing an ICMP ping or dispatching an HTTP RESTCONF request to a Cisco/Juniper router).
+6. Normalization & Ingestion: The worker converts the raw metrics or error text into a structured UnifiedEvent struct and pushes it up the client gRPC stream (StreamResults) back to the Scheduler.
+
+
+#### Pipeline 2: The Push-Based Streaming Flow (Syslog)
+This flow handles spontaneous events generated directly by network devices (e.g., interface down, link flapping).
+
+ ┌─────────────┐  (1. UDP Packet on Port 514)  ┌─────────────┐
+ │ Target Node │ ────────────────────────────> │  COLLECTOR  │
+ └─────────────┘                               └──────┬──────┘
+ (Firewall/Switch)                                    │ (2. Extract payload)
+                                                      ▼
+                                               ┌─────────────┐
+                                               │ Syslog Loop │
+                                               └──────┬──────┘
+                                                      │ (3. Normalize data struct)
+                                                      ▼
+ ┌───────────┐         (4. gRPC Stream)        ┌─────────────┐
+ │ SCHEDULER │ <────────────────────────────── │ Streamer UI │
+ └─────┬─────┘                                 └─────────────┘
+       │
+       ├─ (5a. Event: Status == FAILED) ──> [ PostgreSQL ] (Active Alerts Table)
+       │
+       └─ (5b. Metric: Performance) ──────> [ TimeseriesDB / VictoriaMetrics ]
+
+1. Log Generation: A rogue event happens on a remote firewall. The firewall immediately transmits a raw UDP packet over port 514 to the nearest regional Collector.
+2. Packet Interception: The Collector's background SyslogListener loop catches the packet, ensuring the socket is kept clear for high-velocity bursts.
+3. In-Memory Normalization: The listener transforms the raw text and source IP into the same system-wide UnifiedEvent layout used by pings.
+4. Stream Transmission: The collector pushes this log record directly up the persistent gRPC StreamResults pipe to the Scheduler.
+
+#### The Central Processing Layer (Scheduler Storage Routing)
+Once the Scheduler receives a UnifiedEvent from either pipeline via gRPC, it evaluates the status fields and routes the record to the appropriate database:
+1. To PostgreSQL: If Status == "FAILED" (e.g., a ping timeout or a severe Syslog error), the Scheduler writes it to the active_alerts table for administrative actions or ticketing updates.
+2. To VictoriaMetrics: If the event contains performance metrics (e.g., latency calculations from an ICMP or RESTCONF check), it formats the numbers into the Influx Line Protocol format and ships them via an asynchronous HTTP POST.
+
 <!-- ### 1. ICMP (Ping) Collector
 
 #### Input
