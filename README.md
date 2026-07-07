@@ -98,7 +98,7 @@ This flow handles spontaneous events generated directly by network devices.
        └─ (5b. METRICS) ─> Timeseries DB
 ```
 
-### Steps
+#### Steps
 
 1. Device emits syslog event  
 2. Collector receives via UDP listener  
