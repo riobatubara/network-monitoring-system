@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package collector;
+
+// This tells the compiler where to generate the Go code and what package name to use
+option go_package = "./api/proto/collector;collector";
+
+import "google/protobuf/timestamp.proto";
+
+// Service handling orchestration between Scheduler Server and Remote Collectors
+service MonitoringService {
+  // Bidirectional stream: Collector registers, Server pushes jobs dynamically
+  rpc StreamJobs (StreamJobsRequest) returns (stream MonitorJob);
+  
+  // Client-to-Server stream: Collector streams normalized events back to Server
+  rpc StreamResults (stream UnifiedEvent) returns (StreamResultsResponse);
+}
+
+message StreamJobsRequest {
+  string collector_id = 1;
+}
+
+enum ProtocolType {
+  PROTOCOL_UNSPECIFIED = 0;
+  ICMP = 1;
+  RESTCONF = 2;
+  SYSLOG = 3;
+}
+
+message MonitorJob {
+  string job_id = 1;
+  string target = 2;
+  ProtocolType protocol = 3;
+  int32 timeout_ms = 4;
+}
+
+message UnifiedEvent {
+  string job_id = 1;
+  string target = 2;
+  ProtocolType protocol = 3;
+  string status = 4;        // e.g., "SUCCESS", "FAILED"
+  int64 latency_ms = 5;
+  string payload = 6;       // Raw data dump or error strings
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+message StreamResultsResponse {
+  bool success = 1;
+  int32 processed_count = 2;
+}
